@@ -1,0 +1,47 @@
+import type { ModuleDefinition } from '@/types/module'
+import { seed } from './mock'
+export default {
+  ...{
+    key: 'inventory',
+    title: '库存管理',
+    description: '由代码生成器生成的完整示例模块，可新增、查询、编辑和删除。',
+    route: '/business/inventory',
+    fields: [
+      {
+        key: 'name',
+        label: '商品名称',
+        type: 'text',
+        required: true,
+        list: true,
+        search: true,
+      },
+      {
+        key: 'quantity',
+        label: '库存数量',
+        type: 'number',
+        required: true,
+        list: true,
+        search: false,
+      },
+      {
+        key: 'category',
+        label: '商品分类',
+        type: 'select',
+        required: true,
+        list: true,
+        search: true,
+        options: ['电子产品', '办公用品'],
+      },
+      {
+        key: 'enabled',
+        label: '启用',
+        type: 'boolean',
+        required: false,
+        list: true,
+        search: false,
+      },
+    ],
+    endpoint: '/inventory',
+  },
+  seed,
+} satisfies ModuleDefinition

@@ -1,0 +1,144 @@
+import axios from 'axios'
+import type { DataRow, ModuleDefinition, Repository, Role } from '@/types/module'
+import { hasPermission, readLocal, writeLocal } from './access'
+export function validateRecord(
+  module: ModuleDefinition,
+  input: Record<string, unknown>,
+): Omit<DataRow, 'id'> {
+  const out: Record<string, string | number | boolean> = {}
+  for (const field of module.fields) {
+    const value = input[field.key]
+    if (field.required && (value === undefined || value === null || String(value).trim() === ''))
+      throw Error(`${field.label}不能为空`)
+    if (field.type === 'number') {
+      if (value === '' || value == null) {
+        out[field.key] = ''
+        continue
+      }
+      const n = Number(value)
+      if (!Number.isFinite(n)) throw Error(`${field.label}必须是有效数字`)
+      out[field.key] = n
+    } else if (field.type === 'boolean') {
+      out[field.key] = value === true || value === 'true'
+    } else {
+      const str = String(value ?? '').trim()
+      if (field.type === 'select' && str && !(field.options ?? []).includes(str))
+        throw Error(`${field.label}选项无效`)
+      if (field.type === 'date' && str) {
+        const parsed = new Date(str)
+        if (
+          !/^\d{4}-\d{2}-\d{2}$/.test(str) ||
+          !Number.isFinite(parsed.getTime()) ||
+          parsed.toISOString().slice(0, 10) !== str
+        )
+          throw Error(`${field.label}必须是有效日期`)
+      }
+      out[field.key] = str
+    }
+  }
+  return out
+}
+export function createMemoryRepository(
+  module: ModuleDefinition,
+  initial: DataRow[],
+  persist?: (rows: DataRow[]) => void,
+): Repository {
+  let rows = initial.map((r) => ({ ...r }))
+  const authorize = (role: Role, action: string) => {
+    if (module.readOnly || !hasPermission(role, `${module.key}:${action}`))
+      throw Error('没有操作权限')
+  }
+  return {
+    async list(q) {
+      let filtered = rows.filter(
+        (r) =>
+          (!q.query ||
+            module.fields
+              .filter((f) => f.search)
+              .some((f) =>
+                String(r[f.key] ?? '')
+                  .toLowerCase()
+                  .includes(q.query!.toLowerCase()),
+              )) &&
+          Object.entries(q.filters ?? {}).every(([k, v]) => !v || String(r[k]) === v),
+      )
+      const size = Math.max(1, q.pageSize ?? 10),
+        start = (Math.max(1, q.page ?? 1) - 1) * size
+      return {
+        items: filtered.slice(start, start + size).map((r) => ({ ...r })),
+        total: filtered.length,
+      }
+    },
+    async create(input, role) {
+      authorize(role, 'create')
+      const row = { ...validateRecord(module, input), id: crypto.randomUUID() } as DataRow
+      rows = [row, ...rows]
+      persist?.(rows)
+      return { ...row }
+    },
+    async update(id, input, role) {
+      authorize(role, 'update')
+      const index = rows.findIndex((r) => r.id === id)
+      if (index < 0) throw Error('记录不存在')
+      const row = { ...validateRecord(module, input), id } as DataRow
+      rows[index] = row
+      persist?.(rows)
+      return { ...row }
+    },
+    async remove(id, role) {
+      authorize(role, 'delete')
+      if (!rows.some((r) => r.id === id)) throw Error('记录不存在')
+      rows = rows.filter((r) => r.id !== id)
+      persist?.(rows)
+    },
+  }
+}
+export const mockMode = import.meta.env.VITE_USE_MOCK !== 'false'
+export const http = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  timeout: 15000,
+})
+http.interceptors.request.use((config) => {
+  const token = readLocal<string>('admin-access-token', '')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+http.interceptors.response.use(
+  (r) => r,
+  (error) =>
+    Promise.reject(new Error(error.response?.data?.message || error.message || '请求失败')),
+)
+const cache = new Map<string, Repository>()
+export function getRepository(module: ModuleDefinition): Repository {
+  if (cache.has(module.key)) return cache.get(module.key)!
+  let repo: Repository
+  if (mockMode) {
+    const saved = readLocal<unknown>(`admin-data:${module.key}`, null)
+    const rows =
+      Array.isArray(saved) &&
+      saved.every((r) => r && typeof r === 'object' && typeof r.id === 'string')
+        ? saved
+        : (module.seed ?? [])
+    repo = createMemoryRepository(module, rows, (data) => {
+      writeLocal(`admin-data:${module.key}`, data)
+    })
+  } else {
+    const url = module.endpoint || `/${module.key}`
+    repo = {
+      async list(q) {
+        return (await http.get(url, { params: q })).data
+      },
+      async create(row) {
+        return (await http.post(url, row)).data
+      },
+      async update(id, row) {
+        return (await http.put(`${url}/${encodeURIComponent(id)}`, row)).data
+      },
+      async remove(id) {
+        await http.delete(`${url}/${encodeURIComponent(id)}`)
+      },
+    }
+  }
+  cache.set(module.key, repo)
+  return repo
+}
