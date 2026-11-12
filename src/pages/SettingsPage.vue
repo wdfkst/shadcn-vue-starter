@@ -9,6 +9,10 @@ const prefs = usePreferences(),
   bio = ref(readLocal('admin-profile-bio', '')),
   message = ref('')
 function save() {
+  if (!name.value.trim()) {
+    message.value = '显示名称不能为空'
+    return
+  }
   message.value =
     writeLocal('admin-profile-name', name.value) && writeLocal('admin-profile-bio', bio.value)
       ? '个人资料已保存在当前浏览器'
@@ -32,7 +36,7 @@ function save() {
         </div>
         <div class="space-y-2">
           <label for="display-name" class="text-sm font-medium">显示名称</label
-          ><Input id="display-name" v-model="name" required />
+          ><Input id="display-name" v-model="name" />
         </div>
         <div class="space-y-2">
           <label for="bio" class="text-sm font-medium">个人简介</label
@@ -60,6 +64,7 @@ function save() {
         </div>
         <p v-if="message" role="status" class="text-sm text-muted-foreground">{{ message }}</p>
         <Button type="submit">保存资料</Button>
+        <p v-if="message" role="status" class="text-sm text-muted-foreground">{{ message }}</p>
       </form>
     </div>
   </div>

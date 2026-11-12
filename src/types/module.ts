@@ -7,6 +7,7 @@ export interface Field {
   list?: boolean
   search?: boolean
   options?: string[]
+  dictType?: string
 }
 export interface ModuleDefinition {
   key: string

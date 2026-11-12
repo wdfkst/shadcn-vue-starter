@@ -6,6 +6,7 @@ import {
   SelectRoot,
   SelectTrigger,
   SelectValue,
+  SelectViewport,
   type SelectContentProps,
 } from 'reka-ui'
 import { ChevronDown } from 'lucide-vue-next'
@@ -21,7 +22,7 @@ const props = withDefaults(
     side?: SelectContentProps['side']
     align?: SelectContentProps['align']
   }>(),
-  { placeholder: '请选择', side: 'bottom', align: 'center' },
+  { placeholder: '请选择', side: 'bottom', align: 'start' },
 )
 
 const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
@@ -50,16 +51,17 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
       <SelectContent
         :side="side"
         :align="align"
-        :position="'popper'"
+        position="popper"
+        :side-offset="4"
         :class="
           cn(
-            'z-50 relative max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md',
+            'relative z-50 max-h-(--reka-select-content-available-height) w-full min-w-(--reka-select-trigger-width) overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md',
             'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
             props.class,
           )
         "
       >
-        <slot />
+        <SelectViewport class="p-1"><slot /></SelectViewport>
       </SelectContent>
     </SelectPortal>
   </SelectRoot>

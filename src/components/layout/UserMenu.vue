@@ -31,11 +31,16 @@ function logout() {
 }
 </script>
 <template>
-  <DropdownMenu :side="compact ? 'bottom' : 'right'" align="end" class="w-56">
+  <DropdownMenu
+    :side="compact ? 'bottom' : 'right'"
+    align="end"
+    class="w-56"
+    :trigger-class="compact ? undefined : 'block w-full'"
+  >
     <template #trigger>
       <button
-        class="flex items-center gap-2 rounded-lg text-left hover:bg-sidebar-accent"
-        :class="compact ? 'size-8 justify-center' : 'w-full px-2 py-2'"
+        class="flex items-center gap-2 rounded-md text-left hover:bg-sidebar-accent"
+        :class="compact ? 'size-8 justify-center' : 'h-12 w-full px-2'"
         :aria-label="compact ? '打开账号菜单' : undefined"
       >
         <Avatar :fallback="initials" class="rounded-lg" />

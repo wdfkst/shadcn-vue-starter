@@ -13,14 +13,19 @@ import {
 import { cn } from '@/lib/utils'
 
 const props = withDefaults(
-  defineProps<DropdownMenuContentProps & { class?: HTMLAttributes['class'] }>(),
+  defineProps<
+    DropdownMenuContentProps & {
+      class?: HTMLAttributes['class']
+      triggerClass?: HTMLAttributes['class']
+    }
+  >(),
   { sideOffset: 4 },
 )
 </script>
 
 <template>
   <DropdownMenuRoot>
-    <DropdownMenuTrigger v-bind="$attrs">
+    <DropdownMenuTrigger v-bind="$attrs" :class="triggerClass">
       <slot name="trigger" />
     </DropdownMenuTrigger>
     <DropdownMenuPortal>

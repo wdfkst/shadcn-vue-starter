@@ -28,10 +28,11 @@ import Input from '@/components/ui/input/Input.vue'
 import UserMenu from '@/components/layout/UserMenu.vue'
 import { useAuth } from '@/stores/auth'
 import { usePreferences } from '@/stores/preferences'
-import { systemModules, generatedModules, modulePath } from '@/modules/registry'
+import { useSystem } from '@/stores/system'
 import { mockMode } from '@/lib/repository'
 const auth = useAuth(),
   prefs = usePreferences(),
+  system = useSystem(),
   route = useRoute(),
   router = useRouter(),
   mobile = ref(false),
@@ -39,6 +40,7 @@ const auth = useAuth(),
   settingsOpen = ref(false),
   term = ref('')
 const icons: Record<string, any> = {
+  dashboard: LayoutDashboard,
   users: Users,
   roles: Shield,
   menus: Menu,
@@ -46,26 +48,15 @@ const icons: Record<string, any> = {
   dictionaries: BookOpen,
   'operation-logs': FileClock,
   'login-logs': LogIn,
+  box: Box,
+  generator: Code2,
+  settings: Settings,
 }
-const links = computed(() => [
-  { title: '工作台', path: '/', icon: LayoutDashboard, group: '概览' },
-  ...systemModules.map((m) => ({
-    title: m.title,
-    path: modulePath(m),
-    icon: icons[m.key],
-    group: m.readOnly ? '系统监控' : '系统管理',
-  })),
-  ...generatedModules.map((m) => ({
-    title: m.title,
-    path: modulePath(m),
-    icon: Box,
-    group: '业务模块',
-  })),
-  ...(auth.can('generator:create')
-    ? [{ title: '页面生成器', path: '/tools/generator', icon: Code2, group: '开发工具' }]
-    : []),
-  { title: '个人设置', path: '/settings', icon: Settings, group: '其他' },
-])
+const links = computed(() =>
+  system.navigation
+    .filter((item) => !item.permission || auth.can(item.permission))
+    .map((item) => ({ ...item, icon: icons[item.icon ?? ''] ?? Box })),
+)
 const groups = computed(() => [...new Set(links.value.map((l) => l.group))])
 const results = computed(() =>
   links.value.filter((l) => l.title.toLowerCase().includes(term.value.toLowerCase())),

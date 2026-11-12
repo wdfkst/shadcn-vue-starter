@@ -7,11 +7,12 @@ const text = (key: string, label: string, required = true): Field => ({
   list: true,
   search: true,
 })
-const choice = (key: string, label: string, options: string[]): Field => ({
+const choice = (key: string, label: string, options: string[], dictType?: string): Field => ({
   key,
   label,
   type: 'select',
   options,
+  dictType,
   list: true,
   search: true,
   required: true,
@@ -26,8 +27,8 @@ export const systemModules: ModuleDefinition[] = [
       text('username', '用户名'),
       text('name', '姓名'),
       text('email', '邮箱'),
-      choice('department', '部门', ['研发部', '运营部', '行政部']),
-      choice('role', '角色', ['管理员', '普通成员', '只读成员']),
+      choice('department', '部门', ['研发部', '运营部', '行政部'], 'sys_department'),
+      choice('role', '角色', ['管理员', '普通成员', '只读成员'], 'sys_role'),
       status,
     ],
     seed: Array.from({ length: 24 }, (_, i) => ({
@@ -58,34 +59,28 @@ export const systemModules: ModuleDefinition[] = [
   {
     key: 'menus',
     title: '菜单管理',
-    description: '维护菜单配置示例。当前应用导航由模块路由自动发现，生产项目可接入后端动态菜单。',
+    description: '维护导航菜单。侧栏按上级菜单分组，修改后立即生效；停用的菜单不再显示。',
     fields: [
       text('name', '菜单名称'),
       text('parent', '上级菜单', false),
       text('path', '路由地址'),
-      text('permission', '权限标识'),
+      text('icon', '图标', false),
+      text('permission', '权限标识', false),
       { key: 'order', label: '排序', type: 'number', list: true },
       status,
     ],
     seed: [
-      {
-        id: '1',
-        name: '用户管理',
-        parent: '系统管理',
-        path: '/system/users',
-        permission: 'users:read',
-        order: 1,
-        status: '正常',
-      },
-      {
-        id: '2',
-        name: '角色管理',
-        parent: '系统管理',
-        path: '/system/roles',
-        permission: 'roles:read',
-        order: 2,
-        status: '正常',
-      },
+      { id: '1', name: '工作台', parent: '概览', path: '/', icon: 'dashboard', order: 1, status: '正常' },
+      { id: '2', name: '用户管理', parent: '系统管理', path: '/system/users', icon: 'users', permission: 'users:read', order: 1, status: '正常' },
+      { id: '3', name: '角色管理', parent: '系统管理', path: '/system/roles', icon: 'roles', permission: 'roles:read', order: 2, status: '正常' },
+      { id: '4', name: '菜单管理', parent: '系统管理', path: '/system/menus', icon: 'menus', permission: 'menus:read', order: 3, status: '正常' },
+      { id: '5', name: '部门管理', parent: '系统管理', path: '/system/departments', icon: 'departments', permission: 'departments:read', order: 4, status: '正常' },
+      { id: '6', name: '字典管理', parent: '系统管理', path: '/system/dictionaries', icon: 'dictionaries', permission: 'dictionaries:read', order: 5, status: '正常' },
+      { id: '7', name: '操作日志', parent: '系统监控', path: '/system/operation-logs', icon: 'operation-logs', permission: 'operation-logs:read', order: 1, status: '正常' },
+      { id: '8', name: '登录日志', parent: '系统监控', path: '/system/login-logs', icon: 'login-logs', permission: 'login-logs:read', order: 2, status: '正常' },
+      { id: '9', name: '库存管理', parent: '业务模块', path: '/business/inventory', icon: 'box', permission: 'inventory:read', order: 1, status: '正常' },
+      { id: '10', name: '页面生成器', parent: '开发工具', path: '/tools/generator', icon: 'generator', permission: 'generator:create', order: 1, status: '正常' },
+      { id: '11', name: '个人设置', parent: '其他', path: '/settings', icon: 'settings', order: 1, status: '正常' },
     ],
   },
   {
@@ -111,7 +106,7 @@ export const systemModules: ModuleDefinition[] = [
   {
     key: 'dictionaries',
     title: '字典管理',
-    description: '统一维护业务选项。生成器选择字段可配置独立选项列表。',
+    description: '统一维护业务选项。用户的部门、角色下拉框读取这里的字典，修改后立即生效。',
     fields: [
       text('type', '字典类型'),
       text('label', '显示名称'),
@@ -122,6 +117,12 @@ export const systemModules: ModuleDefinition[] = [
     seed: [
       { id: '1', type: 'sys_status', label: '正常', value: 'enabled', order: 1, status: '正常' },
       { id: '2', type: 'sys_status', label: '停用', value: 'disabled', order: 2, status: '正常' },
+      { id: '3', type: 'sys_department', label: '研发部', value: 'rd', order: 1, status: '正常' },
+      { id: '4', type: 'sys_department', label: '运营部', value: 'ops', order: 2, status: '正常' },
+      { id: '5', type: 'sys_department', label: '行政部', value: 'admin', order: 3, status: '正常' },
+      { id: '6', type: 'sys_role', label: '管理员', value: 'admin', order: 1, status: '正常' },
+      { id: '7', type: 'sys_role', label: '普通成员', value: 'member', order: 2, status: '正常' },
+      { id: '8', type: 'sys_role', label: '只读成员', value: 'viewer', order: 3, status: '正常' },
     ],
   },
   {

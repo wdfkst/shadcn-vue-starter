@@ -19,13 +19,15 @@ import Select from '@/components/ui/select/Select.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
 import { getRepository } from '@/lib/repository'
 import { useAuth } from '@/stores/auth'
-import type { ModuleDefinition, DataRow, Repository } from '@/types/module'
+import { useSystem } from '@/stores/system'
+import type { ModuleDefinition, DataRow, Repository, Field } from '@/types/module'
 const props = defineProps<{
   module: ModuleDefinition
   repository?: Repository
   preview?: boolean
 }>()
 const auth = useAuth(),
+  system = useSystem(),
   rows = ref<DataRow[]>([]),
   total = ref(0),
   query = ref(''),
@@ -45,10 +47,27 @@ const auth = useAuth(),
   saving = ref(false),
   hidden = ref<string[]>([])
 const repo = computed(() => props.repository ?? getRepository(props.module))
+// Select fields bound to a dictionary read live options; static options are the fallback.
+const optionsOf = (field: Field) =>
+  field.dictType ? system.options(field.dictType) : (field.options ?? [])
 const fields = computed(() =>
   props.module.fields.filter((f) => f.list !== false && !hidden.value.includes(f.key)),
 )
 const pages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+// Page buttons with ellipsis (0 marks a gap): 1 … 4 5 6 … 20
+const pageItems = computed(() => {
+  const last = pages.value,
+    cur = page.value
+  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1)
+  const start = Math.max(2, Math.min(cur - 1, last - 4)),
+    end = Math.min(last - 1, Math.max(cur + 1, 5))
+  const items: number[] = [1]
+  if (start > 2) items.push(0)
+  for (let n = start; n <= end; n++) items.push(n)
+  if (end < last - 1) items.push(0)
+  items.push(last)
+  return items
+})
 const writable = computed(() => !props.preview && !props.module.readOnly)
 const can = (action: string) => writable.value && auth.can(`${props.module.key}:${action}`)
 let request = 0
@@ -202,7 +221,7 @@ function display(value: unknown) {
           :model-value="filters[field.key] || '__all'"
           @update:model-value="filters[field.key] = $event === '__all' ? '' : $event"
           ><SelectItem value="__all">全部{{ field.label }}</SelectItem
-          ><SelectItem v-for="option in field.options" :key="option" :value="option">{{
+          ><SelectItem v-for="option in optionsOf(field)" :key="option" :value="option">{{
             option
           }}</SelectItem></Select
         >
@@ -314,14 +333,16 @@ function display(value: unknown) {
       <div class="flex flex-wrap items-center gap-3 border-t p-4 text-sm">
         <span class="text-muted-foreground">已选择 {{ selected.length }} 条</span
         ><span class="flex-1" /><span class="text-muted-foreground">每页</span
-        ><select
-          v-model.number="pageSize"
+        ><Select
+          :model-value="String(pageSize)"
           aria-label="每页条数"
-          class="h-8 rounded-md border bg-background px-2"
+          trigger-class="h-8 w-16"
+          @update:model-value="pageSize = Number($event)"
         >
-          <option :value="10">10</option>
-          <option :value="20">20</option>
-          <option :value="50">50</option></select
+          <SelectItem value="10">10</SelectItem>
+          <SelectItem value="20">20</SelectItem>
+          <SelectItem value="50">50</SelectItem>
+        </Select
         ><span class="text-muted-foreground">第 {{ page }} / {{ pages }} 页</span
         ><Button
           size="icon"
@@ -330,15 +351,17 @@ function display(value: unknown) {
           aria-label="上一页"
           @click="page--"
           ><ChevronLeft /></Button
-        ><Button
-          v-for="n in pages"
-          :key="n"
-          size="icon"
-          :variant="n === page ? 'default' : 'outline'"
-          :aria-label="`第 ${n} 页`"
-          :aria-current="n === page ? 'page' : undefined"
-          @click="page = n"
-          >{{ n }}</Button
+        ><template v-for="(n, i) in pageItems" :key="i"
+          ><span v-if="n === 0" class="w-6 text-center text-muted-foreground">…</span
+          ><Button
+            v-else
+            size="icon"
+            :variant="n === page ? 'default' : 'outline'"
+            :aria-label="`第 ${n} 页`"
+            :aria-current="n === page ? 'page' : undefined"
+            @click="page = n"
+            >{{ n }}</Button
+          ></template
         ><Button
           size="icon"
           variant="outline"
@@ -369,7 +392,7 @@ function display(value: unknown) {
             v-else-if="field.type === 'select'"
             :model-value="String(form[field.key] || '')"
             @update:model-value="form[field.key] = $event"
-            ><SelectItem v-for="option in field.options" :key="option" :value="option">{{
+            ><SelectItem v-for="option in optionsOf(field)" :key="option" :value="option">{{
               option
             }}</SelectItem></Select
           ><input
@@ -383,14 +406,14 @@ function display(value: unknown) {
             :id="field.key"
             v-model="form[field.key] as string"
             class="min-h-24 w-full rounded-md border bg-background p-3 text-sm"
-            :required="field.required"
+            :aria-required="field.required || undefined"
           /><Input
             v-else
             :id="field.key"
             v-model="form[field.key] as string"
             :type="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
             :step="field.type === 'number' ? 'any' : undefined"
-            :required="field.required"
+            :aria-required="field.required || undefined"
           />
         </div>
         <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>

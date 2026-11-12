@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuth } from '@/stores/auth'
+import { useSystem } from '@/stores/system'
 import { systemModules, modulePath } from '@/modules/registry'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 const generated = Object.values(
@@ -45,5 +46,9 @@ router.beforeEach((to) => {
   const auth = useAuth()
   if (!to.meta.public && !auth.session) return { path: '/login', query: { redirect: to.fullPath } }
   if (to.path === '/login' && auth.session) return '/'
-  if (to.meta.permission && !auth.can(String(to.meta.permission))) return '/403'
+  // A menu row's permission gates its route, so disabling a menu also blocks direct URLs.
+  const system = useSystem()
+  const item = system.navigation.find((n) => n.path === to.path)
+  const permission = item?.permission ?? (to.meta.permission ? String(to.meta.permission) : '')
+  if (permission && !auth.can(permission)) return '/403'
 })

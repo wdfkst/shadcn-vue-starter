@@ -3,10 +3,12 @@ import { computed, reactive, ref } from 'vue'
 import { Plus, Trash2, Download, Code2, Eye, Settings2, Upload } from 'lucide-vue-next'
 import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
+import Select from '@/components/ui/select/Select.vue'
+import SelectItem from '@/components/ui/select/SelectItem.vue'
 import CrudPage from '@/components/crud/CrudPage.vue'
 import { generateFiles, validateConfig, type GeneratorConfig } from '@/generator/core.mjs'
 import { createMemoryRepository } from '@/lib/repository'
-import type { ModuleDefinition } from '@/types/module'
+import type { FieldType, ModuleDefinition } from '@/types/module'
 const config = reactive<GeneratorConfig>({
   key: 'products',
   title: '商品管理',
@@ -221,24 +223,24 @@ async function importConfig(e: Event) {
                     />
                   </td>
                   <td class="w-48 p-3">
-                    <select
-                      v-model="field.type"
-                      class="h-9 w-full rounded-md border bg-background px-2"
+                    <Select
+                      :model-value="field.type"
                       :aria-label="`字段 ${i + 1} 类型`"
-                      @change="
-                        () => {
+                      @update:model-value="
+                        (v) => {
+                          field.type = v as FieldType
                           if (field.type === 'select' && !field.options)
                             field.options = ['选项一', '选项二']
                         }
                       "
                     >
-                      <option value="text">文本输入</option>
-                      <option value="textarea">多行文本</option>
-                      <option value="number">数字输入</option>
-                      <option value="select">下拉选择</option>
-                      <option value="boolean">布尔开关</option>
-                      <option value="date">日期</option></select
-                    ><Input
+                      <SelectItem value="text">文本输入</SelectItem>
+                      <SelectItem value="textarea">多行文本</SelectItem>
+                      <SelectItem value="number">数字输入</SelectItem>
+                      <SelectItem value="select">下拉选择</SelectItem>
+                      <SelectItem value="boolean">布尔开关</SelectItem>
+                      <SelectItem value="date">日期</SelectItem>
+                    </Select><Input
                       v-if="field.type === 'select'"
                       class="mt-2 text-xs"
                       :model-value="field.options?.join(',')"
@@ -313,16 +315,17 @@ npm run gen -- --config /path/to/{{ config.key }}.json</pre
             </p>
           </div>
           <div v-if="activeFile" class="overflow-hidden rounded-xl border">
-            <select
-              v-model="selectedFile"
-              class="w-full border-b bg-muted/30 p-3 font-mono text-xs"
+            <Select
+              :model-value="selectedFile"
               aria-label="预览文件"
+              placeholder="选择生成文件"
+              trigger-class="rounded-none border-0 border-b bg-muted/30 font-mono text-xs shadow-none"
+              @update:model-value="selectedFile = $event"
             >
-              <option value="" disabled>选择生成文件</option>
-              <option v-for="path in Object.keys(files)" :key="path" :value="path">
+              <SelectItem v-for="path in Object.keys(files)" :key="path" :value="path">
                 {{ path }}
-              </option>
-            </select>
+              </SelectItem>
+            </Select>
             <p class="border-b px-4 py-2 text-xs text-muted-foreground">{{ activeFile }}</p>
             <pre
               class="max-h-96 overflow-auto p-4 text-xs leading-6"
