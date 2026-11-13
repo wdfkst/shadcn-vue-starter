@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { Plus, Trash2, Download, Code2, Eye, Settings2, Upload } from 'lucide-vue-next'
+import { Plus, Trash2, Download, Code2, Eye, Settings2, Upload, Sparkles } from 'lucide-vue-next'
 import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Select from '@/components/ui/select/Select.vue'
@@ -16,6 +16,7 @@ import {
   unpublishModule,
 } from '@/lib/published'
 import { systemModules, modulePath } from '@/modules/registry'
+import { buildPrompt, extractConfig, retryMessage } from '@/lib/ai-config'
 import { systemRows, useSystem } from '@/stores/system'
 import type { Field, FieldType, ModuleDefinition } from '@/types/module'
 const system = useSystem()
@@ -70,7 +71,12 @@ const tab = ref('fields'),
   fileInput = ref<HTMLInputElement | null>(null),
   selectedFile = ref(''),
   publishMessage = ref(''),
-  confirming = ref(false)
+  confirming = ref(false),
+  chat = ref<{ role: 'user' | 'assistant'; content: string }[]>([]),
+  draft = ref(''),
+  sending = ref(false),
+  chatError = ref(''),
+  proposal = ref<GeneratorConfig | null>(null)
 const generatedRoutes = Object.values(
   import.meta.glob<{ default: { path?: string } }>('../modules/generated/*/route.ts', {
     eager: true,
@@ -129,6 +135,54 @@ function publish() {
 function unpublish(key: string) {
   unpublishModule(key)
   systemRows.menus.value = systemRows.menus.value.filter((m) => m.id !== 'published-' + key)
+}
+async function askAi(messages: { role: string; content: string }[]) {
+  const res = await fetch('/__ai/chat', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ messages }),
+  })
+  const data = await res.json().catch(() => ({ error: 'AI 服务无响应' }))
+  if (res.status === 503) throw Error('请在 .env.local 配置 AI_BASE_URL、AI_MODEL、AI_API_KEY 后重启开发服务器')
+  if (!res.ok) throw Error(data.error || 'AI 服务返回 ' + res.status)
+  return data.content as string
+}
+async function send() {
+  const text = draft.value.trim()
+  if (!text || sending.value) return
+  chat.value = [...chat.value, { role: 'user', content: text }]
+  draft.value = ''
+  sending.value = true
+  chatError.value = ''
+  proposal.value = null
+  const messages = [buildPrompt(dictTypes.value), ...chat.value]
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const content = await askAi(messages)
+      const result = extractConfig(content)
+      if ('config' in result) {
+        chat.value = [...chat.value, { role: 'assistant', content }]
+        proposal.value = result.config
+        return
+      }
+      if (attempt === 2) {
+        chat.value = [...chat.value, { role: 'assistant', content }]
+        chatError.value = '配置校验失败：' + result.error
+        return
+      }
+      messages.push({ role: 'assistant', content }, { role: 'user', content: retryMessage(result.error) })
+    }
+  } catch (e) {
+    chatError.value = (e as Error).message
+  } finally {
+    sending.value = false
+  }
+}
+function applyProposal() {
+  if (!proposal.value) return
+  Object.assign(config, proposal.value)
+  proposal.value = null
+  tab.value = 'fields'
 }
 const validation = computed(() => {
   try {
@@ -270,6 +324,7 @@ async function importConfig(e: Event) {
               { id: 'fields', label: '字段配置', icon: Settings2 },
               { id: 'preview', label: '页面预览', icon: Eye },
               { id: 'code', label: '生成产物', icon: Code2 },
+              { id: 'ai', label: 'AI 生成', icon: Sparkles },
             ]"
             :key="item.id"
             class="flex items-center gap-2 border-b-2 px-1 pb-3 text-sm"
@@ -427,6 +482,49 @@ npm run gen -- --config /path/to/{{ config.key }}.json</pre
               class="max-h-96 overflow-auto p-4 text-xs leading-6"
             ><code>{{files[activeFile]}}</code></pre>
           </div>
+        </div>
+        <div v-else-if="tab === 'ai'" class="space-y-4 rounded-xl border p-5">
+          <ul class="max-h-80 space-y-3 overflow-auto">
+            <li
+              v-for="(message, i) in chat"
+              :key="i"
+              class="text-sm"
+              :class="message.role === 'user' ? 'text-right' : ''"
+            >
+              <span
+                class="inline-block max-w-[80%] whitespace-pre-wrap rounded-md px-3 py-2 text-left"
+                :class="message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'"
+                >{{ message.content }}</span
+              >
+            </li>
+          </ul>
+          <p v-if="!chat.length" class="text-sm text-muted-foreground">
+            描述要生成的模块，例如“做一个供应商管理，包含名称、联系人和状态”。
+          </p>
+          <p v-if="sending" role="status" class="text-sm text-muted-foreground">正在生成…</p>
+          <p
+            v-if="chatError"
+            role="alert"
+            class="rounded-md border border-destructive/30 p-3 text-sm text-destructive"
+          >
+            {{ chatError }}
+          </p>
+          <div v-if="proposal" class="rounded-md border p-4 text-sm">
+            <p class="font-medium">{{ proposal.title }} · {{ proposal.route }}</p>
+            <ul class="mt-2 space-y-1 text-muted-foreground">
+              <li v-for="field in proposal.fields" :key="field.key">
+                {{ field.label }}（{{ field.type }}）
+              </li>
+            </ul>
+            <Button class="mt-3" @click="applyProposal">应用到字段表格</Button>
+          </div>
+          <form class="flex gap-2" @submit.prevent="send">
+            <Input v-model="draft" aria-label="描述要生成的模块" :disabled="sending" /><Button
+              type="submit"
+              :disabled="sending || !draft.trim()"
+              >发送</Button
+            >
+          </form>
         </div>
         <div class="rounded-xl border p-5">
           <h2 class="text-sm font-semibold">发布到本地</h2>
