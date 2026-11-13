@@ -14,6 +14,35 @@ const config = {
   ],
 }
 describe('generator', () => {
+  it('keeps dictType on select fields and rejects it elsewhere', () => {
+    const files = generateFiles({
+      ...config,
+      fields: [
+        {
+          key: 'category',
+          label: '分类',
+          type: 'select',
+          options: ['办公用品'],
+          dictType: 'sys_category',
+        },
+      ],
+    })
+    expect(files['src/modules/generated/products/schema.ts']).toContain('"dictType": "sys_category"')
+    expect(() =>
+      validateConfig({
+        ...config,
+        fields: [{ key: 'name', label: '名称', type: 'text', dictType: 'sys_status' }],
+      }),
+    ).toThrow()
+    expect(() =>
+      validateConfig({
+        ...config,
+        fields: [
+          { key: 'category', label: '分类', type: 'select', options: ['A'], dictType: 'Bad Type' },
+        ],
+      }),
+    ).toThrow()
+  })
   it('rejects traversal, invalid identifiers and duplicate fields', () => {
     for (const key of ['../escape', 'foo/bar', 'CON', 'users'])
       expect(() => validateConfig({ ...config, key })).toThrow()

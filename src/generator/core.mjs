@@ -31,10 +31,16 @@ const fieldSchema = z
     list: z.boolean().default(true),
     search: z.boolean().default(false),
     options: z.array(z.string().trim().min(1).max(80)).max(50).optional(),
+    dictType: z
+      .string()
+      .regex(/^[a-z][a-z0-9_]{0,39}$/, '字典类型只能由小写字母开头的字母、数字和下划线组成')
+      .optional(),
   })
   .superRefine((f, c) => {
     if (f.type === 'select' && (!f.options?.length || new Set(f.options).size !== f.options.length))
       c.addIssue({ code: 'custom', message: '选择字段必须有不重复的选项' })
+    if (f.dictType && f.type !== 'select')
+      c.addIssue({ code: 'custom', message: '只有选择字段可以关联字典' })
   })
 const schema = z
   .object({

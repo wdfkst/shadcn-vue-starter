@@ -8,7 +8,28 @@ import SelectItem from '@/components/ui/select/SelectItem.vue'
 import CrudPage from '@/components/crud/CrudPage.vue'
 import { generateFiles, validateConfig, type GeneratorConfig } from '@/generator/core.mjs'
 import { createMemoryRepository } from '@/lib/repository'
-import type { FieldType, ModuleDefinition } from '@/types/module'
+import { systemRows, useSystem } from '@/stores/system'
+import type { Field, FieldType, ModuleDefinition } from '@/types/module'
+const system = useSystem()
+const NO_DICT = '__none'
+const dictTypes = computed(() =>
+  [...new Set(systemRows.dictionaries.value.map((r) => String(r.type)))].sort(),
+)
+function setType(field: Field, type: FieldType) {
+  field.type = type
+  if (type === 'select' && !field.options) field.options = ['选项一', '选项二']
+  if (type !== 'select') delete field.dictType
+}
+function setDictType(field: Field, value: string) {
+  if (value === NO_DICT) {
+    delete field.dictType
+    return
+  }
+  field.dictType = value
+  // Keep options as the fallback list baked into the generated schema and seed.
+  const live = system.options(value)
+  if (live.length) field.options = live
+}
 const config = reactive<GeneratorConfig>({
   key: 'products',
   title: '商品管理',
@@ -226,13 +247,7 @@ async function importConfig(e: Event) {
                     <Select
                       :model-value="field.type"
                       :aria-label="`字段 ${i + 1} 类型`"
-                      @update:model-value="
-                        (v) => {
-                          field.type = v as FieldType
-                          if (field.type === 'select' && !field.options)
-                            field.options = ['选项一', '选项二']
-                        }
-                      "
+                      @update:model-value="setType(field, $event as FieldType)"
                     >
                       <SelectItem value="text">文本输入</SelectItem>
                       <SelectItem value="textarea">多行文本</SelectItem>
@@ -240,10 +255,22 @@ async function importConfig(e: Event) {
                       <SelectItem value="select">下拉选择</SelectItem>
                       <SelectItem value="boolean">布尔开关</SelectItem>
                       <SelectItem value="date">日期</SelectItem>
+                    </Select><Select
+                      v-if="field.type === 'select'"
+                      class="mt-2"
+                      trigger-class="text-xs"
+                      :model-value="field.dictType ?? NO_DICT"
+                      :aria-label="`字段 ${i + 1} 关联字典`"
+                      @update:model-value="setDictType(field, $event)"
+                    >
+                      <SelectItem :value="NO_DICT">不关联字典</SelectItem>
+                      <SelectItem v-for="t in dictTypes" :key="t" :value="t">{{ t }}</SelectItem>
                     </Select><Input
                       v-if="field.type === 'select'"
                       class="mt-2 text-xs"
                       :model-value="field.options?.join(',')"
+                      :disabled="!!field.dictType"
+                      :title="field.dictType ? '选项由字典管理维护' : undefined"
                       placeholder="选项用英文逗号分隔"
                       @update:model-value="
                         field.options = String($event)
