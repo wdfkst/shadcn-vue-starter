@@ -3,23 +3,24 @@ import type { DataRow, ModuleDefinition, Repository, Role } from '@/types/module
 import { hasPermission, readLocal, writeLocal } from './access'
 import { systemRows } from '@/stores/system'
 import { dictionaryOptions } from './system-data'
-export function validateRecord(
+export function collectRecordErrors(
   module: ModuleDefinition,
   input: Record<string, unknown>,
-): Omit<DataRow, 'id'> {
+): { values: Omit<DataRow, 'id'>; errors: string[] } {
   const out: Record<string, string | number | boolean> = {}
+  const errors: string[] = []
   for (const field of module.fields) {
     const value = input[field.key]
     if (field.required && (value === undefined || value === null || String(value).trim() === ''))
-      throw Error(`${field.label}不能为空`)
+      errors.push(`${field.label}不能为空`)
     if (field.type === 'number') {
       if (value === '' || value == null) {
         out[field.key] = ''
         continue
       }
       const n = Number(value)
-      if (!Number.isFinite(n)) throw Error(`${field.label}必须是有效数字`)
-      out[field.key] = n
+      if (!Number.isFinite(n)) errors.push(`${field.label}必须是有效数字`)
+      else out[field.key] = n
     } else if (field.type === 'boolean') {
       out[field.key] = value === true || value === 'true'
     } else {
@@ -28,7 +29,7 @@ export function validateRecord(
         ? dictionaryOptions(systemRows.dictionaries.value, field.dictType)
         : (field.options ?? [])
       if (field.type === 'select' && str && !allowed.includes(str))
-        throw Error(`${field.label}选项无效`)
+        errors.push(`${field.label}选项无效`)
       if (field.type === 'date' && str) {
         const parsed = new Date(str)
         if (
@@ -36,12 +37,20 @@ export function validateRecord(
           !Number.isFinite(parsed.getTime()) ||
           parsed.toISOString().slice(0, 10) !== str
         )
-          throw Error(`${field.label}必须是有效日期`)
+          errors.push(`${field.label}必须是有效日期`)
       }
       out[field.key] = str
     }
   }
-  return out
+  return { values: out, errors }
+}
+export function validateRecord(
+  module: ModuleDefinition,
+  input: Record<string, unknown>,
+): Omit<DataRow, 'id'> {
+  const { values, errors } = collectRecordErrors(module, input)
+  if (errors.length) throw Error(errors[0])
+  return values
 }
 export function createMemoryRepository(
   module: ModuleDefinition,

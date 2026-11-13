@@ -62,6 +62,18 @@ describe('repository', () => {
       enabled: false,
     })
   })
+  it('collects every field error instead of the first', async () => {
+    const { collectRecordErrors } = await import('../src/lib/repository')
+    const result = collectRecordErrors(
+      {
+        ...module,
+        fields: [...module.fields, { key: 'day', label: '日期', type: 'date' as const, list: true }],
+      },
+      { name: '  ', price: 'abc', day: '2026-13-40' },
+    )
+    expect(result.errors).toEqual(['名称不能为空', '价格必须是有效数字', '日期必须是有效日期'])
+    expect(() => validateRecord(module, { name: '', price: 1 })).toThrow('名称不能为空')
+  })
   it('rejects writes on logs', async () => {
     const repo = createMemoryRepository({ ...module, readOnly: true }, [])
     await expect(repo.create({ name: 'A', price: 1 }, 'admin')).rejects.toThrow()
