@@ -74,6 +74,14 @@ describe('repository', () => {
     expect(result.errors).toEqual(['名称不能为空', '价格必须是有效数字', '日期必须是有效日期'])
     expect(() => validateRecord(module, { name: '', price: 1 })).toThrow('名称不能为空')
   })
+  it('returns every match when pageSize is 0', async () => {
+    const repo = createMemoryRepository(module, [
+      { id: '1', name: 'a', price: 1 },
+      { id: '2', name: 'b', price: 2 },
+    ])
+    expect((await repo.list({ pageSize: 0 })).items).toHaveLength(2)
+    expect((await repo.list({ pageSize: 1 })).items).toHaveLength(1)
+  })
   it('rejects writes on logs', async () => {
     const repo = createMemoryRepository({ ...module, readOnly: true }, [])
     await expect(repo.create({ name: 'A', price: 1 }, 'admin')).rejects.toThrow()

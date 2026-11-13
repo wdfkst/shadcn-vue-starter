@@ -17,7 +17,9 @@ import Input from '@/components/ui/input/Input.vue'
 import Dialog from '@/components/ui/dialog/Dialog.vue'
 import Select from '@/components/ui/select/Select.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
-import { getRepository } from '@/lib/repository'
+import DropdownMenu from '@/components/ui/dropdown-menu/DropdownMenu.vue'
+import { getRepository, mockMode } from '@/lib/repository'
+import { exportRows, parseWorkbook, templateWorkbook } from '@/lib/excel'
 import { useAuth } from '@/stores/auth'
 import { useSystem } from '@/stores/system'
 import type { ModuleDefinition, DataRow, Repository, Field } from '@/types/module'
@@ -46,6 +48,10 @@ const auth = useAuth(),
   form = reactive<Record<string, unknown>>({}),
   saving = ref(false),
   hidden = ref<string[]>([])
+const MAX_IMPORT = 5 * 1024 * 1024
+const fileInput = ref<HTMLInputElement | null>(null)
+const importing = ref(false)
+const importRows = ref<{ values: Record<string, unknown>; errors: string[] }[]>([])
 const repo = computed(() => props.repository ?? getRepository(props.module))
 // Select fields bound to a dictionary read live options; static options are the fallback.
 const optionsOf = (field: Field) =>
@@ -153,25 +159,78 @@ async function remove() {
     saving.value = false
   }
 }
-function csv() {
-  const cell = (v: unknown) =>
-    '"' +
-    String(v ?? '')
-      .replace(/^[=+@-]/, "'$&")
-      .replaceAll('"', '""') +
-    '"'
-  const data = [
-    fields.value.map((f) => cell(f.label)).join(','),
-    ...rows.value
-      .filter((r) => !selected.value.length || selected.value.includes(r.id))
-      .map((r) => fields.value.map((f) => cell(r[f.key])).join(',')),
-  ].join('\r\n')
-  const url = URL.createObjectURL(new Blob(['﻿' + data], { type: 'text/csv;charset=utf-8' }))
+function download(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = props.module.key + '.csv'
+  a.download = name
   a.click()
   URL.revokeObjectURL(url)
+}
+async function exportAll(filtered: boolean) {
+  error.value = ''
+  try {
+    const { items } = await repo.value.list({
+      query: filtered ? query.value : '',
+      filters: filtered ? filters : {},
+      pageSize: 0,
+    })
+    download(await exportRows(props.module, items), props.module.key + '.xlsx')
+  } catch (e) {
+    error.value = (e as Error).message
+  }
+}
+async function downloadTemplate() {
+  download(
+    await templateWorkbook(props.module, (f) => optionsOf(f)),
+    props.module.key + '-模板.xlsx',
+  )
+}
+async function onImportFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (file.size > MAX_IMPORT) {
+    error.value = '导入文件不能超过 5MB'
+    return
+  }
+  const parsed = await parseWorkbook(props.module, await file.arrayBuffer())
+  if (parsed.error) {
+    error.value = parsed.error
+    return
+  }
+  importRows.value = parsed.rows
+  importing.value = true
+}
+async function confirmImport() {
+  const valid = importRows.value.filter((r) => !r.errors.length)
+  let done = 0
+  saving.value = true
+  try {
+    for (const row of valid) {
+      await repo.value.create(row.values, auth.role!)
+      done++
+    }
+    importing.value = false
+    success.value = `已导入 ${done} 行`
+    await load()
+  } catch (e) {
+    error.value = `已导入 ${done} 行，第 ${done + 1} 行失败：${(e as Error).message}`
+  } finally {
+    saving.value = false
+  }
+}
+async function exportErrors() {
+  const bad = importRows.value.filter((r) => r.errors.length)
+  download(
+    await exportRows(
+      props.module,
+      bad.map((r, i) => ({ ...(r.values as object), id: String(i) }) as DataRow),
+      { header: '错误原因', values: bad.map((r) => r.errors.join('；')) },
+    ),
+    props.module.key + '-错误行.xlsx',
+  )
 }
 function display(value: unknown) {
   return typeof value === 'boolean'
@@ -191,8 +250,48 @@ function display(value: unknown) {
         <p class="mt-1 text-sm text-muted-foreground">{{ module.description }}</p>
       </div>
       <div class="flex gap-2">
-        <Button variant="outline" @click="csv"><Download />导出当前页</Button
-        ><Button v-if="can('create')" @click="open('create')"><Plus />新增</Button>
+        <input
+          ref="fileInput"
+          type="file"
+          accept=".xlsx"
+          class="hidden"
+          @change="onImportFile"
+        />
+        <DropdownMenu>
+          <template #trigger>
+            <Button variant="outline"><Download />导入导出</Button>
+          </template>
+          <button
+            class="w-full px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50"
+            :disabled="!mockMode"
+            title="接口模式暂不支持全量导出"
+            @click="exportAll(false)"
+          >
+            导出全部
+          </button>
+          <button
+            class="w-full px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50"
+            :disabled="!mockMode"
+            title="接口模式暂不支持全量导出"
+            @click="exportAll(true)"
+          >
+            导出筛选结果
+          </button>
+          <button
+            class="w-full px-2 py-1.5 text-left text-sm hover:bg-accent"
+            @click="downloadTemplate"
+          >
+            下载导入模板
+          </button>
+          <button
+            v-if="can('create')"
+            class="w-full px-2 py-1.5 text-left text-sm hover:bg-accent"
+            @click="fileInput?.click()"
+          >
+            导入数据
+          </button>
+        </DropdownMenu>
+        <Button v-if="can('create')" @click="open('create')"><Plus />新增</Button>
       </div>
     </div>
     <div
@@ -457,5 +556,42 @@ function display(value: unknown) {
         />{{ field.label }}</label
       ></Dialog
     >
+    <Dialog
+      :open="importing"
+      title="导入预览"
+      :description="`共 ${importRows.length} 行，${importRows.filter((r) => r.errors.length).length} 行有误`"
+      @update:open="
+        (value) => {
+          if (!value) importing = false
+        }
+      "
+    >
+      <div class="max-h-80 overflow-auto">
+        <table class="w-full text-left text-sm">
+          <tbody>
+            <tr
+              v-for="(row, i) in importRows"
+              :key="i"
+              :class="row.errors.length ? 'text-destructive' : ''"
+            >
+              <td class="p-1">{{ i + 1 }}</td>
+              <td v-for="field in module.fields.filter((f) => f.list !== false)" :key="field.key" class="p-1">
+                {{ row.values[field.key] }}
+              </td>
+              <td class="p-1">{{ row.errors.join('；') }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-end gap-2 pt-3">
+        <Button variant="outline" @click="importing = false">取消</Button>
+        <Button variant="outline" @click="exportErrors">导出错误行</Button>
+        <Button
+          :disabled="saving || !importRows.some((r) => !r.errors.length)"
+          @click="confirmImport"
+          >导入 {{ importRows.filter((r) => !r.errors.length).length }} 行有效数据</Button
+        >
+      </div>
+    </Dialog>
   </div>
 </template>

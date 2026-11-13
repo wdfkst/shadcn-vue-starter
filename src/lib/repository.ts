@@ -83,7 +83,7 @@ export function createMemoryRepository(
               )) &&
           Object.entries(q.filters ?? {}).every(([k, v]) => !v || String(r[k]) === v),
       )
-      const size = Math.max(1, q.pageSize ?? 10),
+      const size = q.pageSize === 0 ? filtered.length || 1 : Math.max(1, q.pageSize ?? 10),
         start = (Math.max(1, q.page ?? 1) - 1) * size
       return {
         items: filtered.slice(start, start + size).map((r) => ({ ...r })),
