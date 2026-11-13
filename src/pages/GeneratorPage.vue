@@ -5,9 +5,17 @@ import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Select from '@/components/ui/select/Select.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
+import Dialog from '@/components/ui/dialog/Dialog.vue'
 import CrudPage from '@/components/crud/CrudPage.vue'
 import { generateFiles, validateConfig, type GeneratorConfig } from '@/generator/core.mjs'
-import { createMemoryRepository } from '@/lib/repository'
+import { createMemoryRepository, mockMode } from '@/lib/repository'
+import {
+  menuRowFor,
+  publishedModules,
+  publishModule,
+  unpublishModule,
+} from '@/lib/published'
+import { systemModules, modulePath } from '@/modules/registry'
 import { systemRows, useSystem } from '@/stores/system'
 import type { Field, FieldType, ModuleDefinition } from '@/types/module'
 const system = useSystem()
@@ -60,7 +68,68 @@ const config = reactive<GeneratorConfig>({
 const tab = ref('fields'),
   error = ref(''),
   fileInput = ref<HTMLInputElement | null>(null),
-  selectedFile = ref('')
+  selectedFile = ref(''),
+  publishMessage = ref(''),
+  confirming = ref(false)
+const generatedRoutes = Object.values(
+  import.meta.glob<{ default: { path?: string } }>('../modules/generated/*/route.ts', {
+    eager: true,
+  }),
+).map((m) => m.default.path ?? '')
+const reservedKeys = [
+  ...systemModules.map((m) => m.key),
+  ...Object.keys(
+    import.meta.glob('../modules/generated/*/route.ts'),
+  ).map((p) => p.split('/').at(-2) ?? ''),
+]
+const reservedRoutes = [
+  '/',
+  '/login',
+  '/settings',
+  '/tools/generator',
+  '/403',
+  ...systemModules.map((m) => modulePath(m)),
+  ...generatedRoutes,
+]
+function doPublish() {
+  if (!validation.value.data) {
+    publishMessage.value = validation.value.error
+    return
+  }
+  const result = publishModule(validation.value.data, {
+    menus: systemRows.menus.value,
+    reservedKeys,
+    reservedRoutes,
+  })
+  if (!result.ok) {
+    publishMessage.value = result.reason
+    return
+  }
+  const row = menuRowFor(validation.value.data)
+  const index = systemRows.menus.value.findIndex((m) => m.id === row.id)
+  systemRows.menus.value =
+    index < 0
+      ? [...systemRows.menus.value, row]
+      : systemRows.menus.value.map((m, i) => (i === index ? row : m))
+  confirming.value = false
+  publishMessage.value = '已发布，侧栏可直接打开'
+}
+function publish() {
+  if (!validation.value.data) {
+    publishMessage.value = validation.value.error
+    return
+  }
+  publishMessage.value = ''
+  if (publishedModules.value.some((c) => c.key === validation.value.data!.key)) {
+    confirming.value = true
+    return
+  }
+  doPublish()
+}
+function unpublish(key: string) {
+  unpublishModule(key)
+  systemRows.menus.value = systemRows.menus.value.filter((m) => m.id !== 'published-' + key)
+}
 const validation = computed(() => {
   try {
     return { data: validateConfig(config), error: '' }
@@ -359,6 +428,45 @@ npm run gen -- --config /path/to/{{ config.key }}.json</pre
             ><code>{{files[activeFile]}}</code></pre>
           </div>
         </div>
+        <div class="rounded-xl border p-5">
+          <h2 class="text-sm font-semibold">发布到本地</h2>
+          <p v-if="!mockMode" class="mt-3 text-sm text-muted-foreground">
+            发布需要后端支持，当前为接口模式
+          </p>
+          <template v-else>
+            <p class="mt-3 text-sm text-muted-foreground">
+              发布后模块出现在侧栏，数据保存在本机，无需重新构建。
+            </p>
+            <Button class="mt-3" :disabled="!validation.data" @click="publish">发布</Button>
+            <p v-if="publishMessage" role="status" class="mt-3 text-sm text-muted-foreground">
+              {{ publishMessage }}
+            </p>
+            <ul v-if="publishedModules.length" class="mt-4 space-y-2">
+              <li
+                v-for="item in publishedModules"
+                :key="item.key"
+                class="flex items-center justify-between text-sm"
+              >
+                <span>{{ item.title }}<span class="ml-2 text-muted-foreground">{{ item.route }}</span></span>
+                <Button variant="ghost" @click="unpublish(item.key)">下线</Button>
+              </li>
+            </ul>
+          </template>
+        </div>
+        <Dialog
+          :open="confirming"
+          title="重新发布"
+          description="修改字段可能影响已有数据，已有记录会保留，但被删除或变更类型的字段需要重新编辑。"
+          @update:open="
+            (value) => {
+              if (!value) confirming = false
+            }
+          "
+          ><div class="flex justify-end gap-2">
+            <Button variant="outline" @click="confirming = false">取消</Button
+            ><Button @click="doPublish">确认发布</Button>
+          </div></Dialog
+        >
       </div>
     </div>
   </div>

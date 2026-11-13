@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue'
-import { validateConfig } from '../generator/core.mjs'
+import { validateConfig, type GeneratorConfig } from '../generator/core.mjs'
 import { readLocal, writeLocal } from './access'
-import type { DataRow, GeneratorConfig } from '@/types/module'
+import type { DataRow } from '@/types/module'
 
 export const PUBLISHED_KEY = 'admin-published-modules'
 
@@ -53,4 +53,26 @@ export function publishModule(config: GeneratorConfig, ctx: PublishContext): Pub
 
 export function unpublishModule(key: string) {
   publishedModules.value = publishedModules.value.filter((c) => c.key !== key)
+}
+
+export function publishedPermission(
+  path: string,
+  configs: { key: string; route: string }[],
+): string {
+  const match = configs.find((c) => c.route === path)
+  return match ? match.key + ':read' : ''
+}
+
+// `??` cannot express this chain: an empty string from publishedPermission must fall through.
+export function routePermission(
+  menuPermission: string | undefined,
+  path: string,
+  configs: { key: string; route: string }[],
+  metaPermission: unknown,
+): string {
+  return (
+    menuPermission ||
+    publishedPermission(path, configs) ||
+    (metaPermission ? String(metaPermission) : '')
+  )
 }

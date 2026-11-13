@@ -80,4 +80,22 @@ describe('published modules', () => {
     expect(published.publishedModules.value).toEqual([])
     expect(store.has('admin-data:suppliers')).toBe(true)
   })
+
+  it('resolves the permission of a published path', () => {
+    const configs = [{ key: 'suppliers', route: '/business/suppliers' }]
+    expect(published.publishedPermission('/business/suppliers', configs)).toBe('suppliers:read')
+    expect(published.publishedPermission('/business/unknown', configs)).toBe('')
+    expect(published.publishedPermission('/business/Suppliers', configs)).toBe('')
+  })
+
+  it('falls back from menu to published config to route meta', () => {
+    const configs = [{ key: 'suppliers', route: '/business/suppliers' }]
+    const { routePermission } = published
+    expect(routePermission('menus:read', '/business/suppliers', configs, 'x')).toBe('menus:read')
+    expect(routePermission(undefined, '/business/suppliers', configs, '')).toBe('suppliers:read')
+    expect(routePermission(undefined, '/business/inventory', configs, 'inventory:read')).toBe(
+      'inventory:read',
+    )
+    expect(routePermission(undefined, '/settings', configs, undefined)).toBe('')
+  })
 })

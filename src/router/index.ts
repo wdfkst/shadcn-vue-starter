@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuth } from '@/stores/auth'
 import { useSystem } from '@/stores/system'
 import { systemModules, modulePath } from '@/modules/registry'
+import { publishedModules, routePermission } from '@/lib/published'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 const generated = Object.values(
   import.meta.glob<{ default: RouteRecordRaw }>('../modules/generated/*/route.ts', { eager: true }),
@@ -22,6 +23,14 @@ export const router = createRouter({
           meta: { permission: module.key + ':read' },
         })),
         ...generated,
+        ...(import.meta.env.VITE_USE_MOCK === 'false'
+          ? []
+          : [
+              {
+                path: '/business/:slug',
+                component: () => import('@/pages/PublishedPage.vue'),
+              },
+            ]),
         {
           path: '/tools/generator',
           component: () => import('@/pages/GeneratorPage.vue'),
@@ -49,6 +58,11 @@ router.beforeEach((to) => {
   // A menu row's permission gates its route, so disabling a menu also blocks direct URLs.
   const system = useSystem()
   const item = system.navigation.find((n) => n.path === to.path)
-  const permission = item?.permission ?? (to.meta.permission ? String(to.meta.permission) : '')
+  const permission = routePermission(
+    item?.permission,
+    to.path,
+    publishedModules.value,
+    to.meta.permission,
+  )
   if (permission && !auth.can(permission)) return '/403'
 })
