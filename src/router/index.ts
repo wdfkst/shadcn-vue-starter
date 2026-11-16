@@ -36,6 +36,7 @@ export const router = createRouter({
           component: () => import('@/pages/GeneratorPage.vue'),
           meta: { permission: 'generator:create' },
         },
+        { path: '/tools/components', component: () => import('@/pages/ComponentsPage.vue') },
         { path: '/settings', component: () => import('@/pages/SettingsPage.vue') },
         {
           path: '/403',

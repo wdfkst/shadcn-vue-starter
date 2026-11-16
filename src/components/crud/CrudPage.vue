@@ -18,7 +18,8 @@ import Dialog from '@/components/ui/dialog/Dialog.vue'
 import Select from '@/components/ui/select/Select.vue'
 import SelectItem from '@/components/ui/select/SelectItem.vue'
 import DropdownMenu from '@/components/ui/dropdown-menu/DropdownMenu.vue'
-import { getRepository, mockMode } from '@/lib/repository'
+import DatePicker from '@/components/ui/date-picker/DatePicker.vue'
+import { getRepository, mockMode, collectRecordErrors, ValidationError } from '@/lib/repository'
 import { exportRows, parseWorkbook, templateWorkbook } from '@/lib/excel'
 import { useAuth } from '@/stores/auth'
 import { useSystem } from '@/stores/system'
@@ -46,6 +47,7 @@ const auth = useAuth(),
   mode = ref<'create' | 'edit' | 'detail'>('create'),
   editingId = ref(''),
   form = reactive<Record<string, unknown>>({}),
+  fieldErrors = reactive<Record<string, string>>({}),
   saving = ref(false),
   hidden = ref<string[]>([])
 const MAX_IMPORT = 5 * 1024 * 1024
@@ -127,10 +129,17 @@ function open(kind: 'create' | 'edit' | 'detail', row?: DataRow) {
   props.module.fields.forEach(
     (f) => (form[f.key] = row?.[f.key] ?? (f.type === 'boolean' ? false : '')),
   )
+  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
   error.value = ''
   editor.value = true
 }
 async function save() {
+  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
+  const checked = collectRecordErrors(props.module, form)
+  if (checked.errors.length) {
+    Object.assign(fieldErrors, checked.fieldErrors)
+    return
+  }
   saving.value = true
   error.value = ''
   try {
@@ -140,7 +149,8 @@ async function save() {
     success.value = '保存成功'
     await load()
   } catch (e) {
-    error.value = (e as Error).message
+    if (e instanceof ValidationError) Object.assign(fieldErrors, e.fields)
+    else error.value = (e as Error).message
   } finally {
     saving.value = false
   }
@@ -479,7 +489,7 @@ function display(value: unknown) {
       description="填写业务字段，带 * 的字段为必填。"
       class="max-h-[90svh] max-w-xl overflow-y-auto"
       ><form class="space-y-4" @submit.prevent="save">
-        <div v-for="field in module.fields" :key="field.key" class="space-y-2">
+        <div v-for="field in module.fields" :key="field.key" class="space-y-1.5">
           <label :for="field.key" class="text-sm font-medium"
             >{{ field.label
             }}<span v-if="field.required" class="ml-1 text-destructive">*</span></label
@@ -506,14 +516,25 @@ function display(value: unknown) {
             v-model="form[field.key] as string"
             class="min-h-24 w-full rounded-md border bg-background p-3 text-sm"
             :aria-required="field.required || undefined"
+            :aria-invalid="!!fieldErrors[field.key] || undefined"
+          /><DatePicker
+            v-else-if="field.type === 'date'"
+            :id="field.key"
+            :model-value="String(form[field.key] || '')"
+            :invalid="!!fieldErrors[field.key]"
+            @update:model-value="form[field.key] = $event"
           /><Input
             v-else
             :id="field.key"
             v-model="form[field.key] as string"
-            :type="field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'"
+            :type="field.type === 'number' ? 'number' : 'text'"
             :step="field.type === 'number' ? 'any' : undefined"
             :aria-required="field.required || undefined"
+            :aria-invalid="!!fieldErrors[field.key] || undefined"
           />
+          <p v-if="fieldErrors[field.key]" role="alert" class="text-sm text-destructive">
+            {{ fieldErrors[field.key] }}
+          </p>
         </div>
         <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
         <div class="flex justify-end gap-2 pt-3">

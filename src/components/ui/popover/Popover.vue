@@ -8,14 +8,17 @@ const props = withDefaults(
     class?: HTMLAttributes['class']
     sideOffset?: number
     align?: 'start' | 'center' | 'end'
+    open?: boolean
   }>(),
   { sideOffset: 4, align: 'center' },
 )
+
+const emit = defineEmits<{ (e: 'update:open', value: boolean): void }>()
 </script>
 
 <template>
-  <PopoverRoot>
-    <PopoverTrigger v-bind="$attrs">
+  <PopoverRoot :open="open" @update:open="emit('update:open', $event)">
+    <PopoverTrigger as-child>
       <slot name="trigger" />
     </PopoverTrigger>
     <PopoverPortal>

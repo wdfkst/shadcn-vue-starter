@@ -1,25 +1,31 @@
 import axios from 'axios'
-import type { DataRow, ModuleDefinition, Repository, Role } from '@/types/module'
+import type { DataRow, Field, ModuleDefinition, Repository, Role } from '@/types/module'
 import { hasPermission, readLocal, writeLocal } from './access'
 import { systemRows } from '@/stores/system'
 import { dictionaryOptions } from './system-data'
 export function collectRecordErrors(
   module: ModuleDefinition,
   input: Record<string, unknown>,
-): { values: Omit<DataRow, 'id'>; errors: string[] } {
+): { values: Omit<DataRow, 'id'>; errors: string[]; fieldErrors: Record<string, string> } {
   const out: Record<string, string | number | boolean> = {}
   const errors: string[] = []
+  // First message per field, so forms can show it under the matching input.
+  const fieldErrors: Record<string, string> = {}
+  const fail = (field: Field, message: string) => {
+    errors.push(message)
+    fieldErrors[field.key] ??= message
+  }
   for (const field of module.fields) {
     const value = input[field.key]
     if (field.required && (value === undefined || value === null || String(value).trim() === ''))
-      errors.push(`${field.label}不能为空`)
+      fail(field, `${field.label}不能为空`)
     if (field.type === 'number') {
       if (value === '' || value == null) {
         out[field.key] = ''
         continue
       }
       const n = Number(value)
-      if (!Number.isFinite(n)) errors.push(`${field.label}必须是有效数字`)
+      if (!Number.isFinite(n)) fail(field, `${field.label}必须是有效数字`)
       else out[field.key] = n
     } else if (field.type === 'boolean') {
       out[field.key] = value === true || value === 'true'
@@ -29,7 +35,7 @@ export function collectRecordErrors(
         ? dictionaryOptions(systemRows.dictionaries.value, field.dictType)
         : (field.options ?? [])
       if (field.type === 'select' && str && !allowed.includes(str))
-        errors.push(`${field.label}选项无效`)
+        fail(field, `${field.label}选项无效`)
       if (field.type === 'date' && str) {
         const parsed = new Date(str)
         if (
@@ -37,19 +43,26 @@ export function collectRecordErrors(
           !Number.isFinite(parsed.getTime()) ||
           parsed.toISOString().slice(0, 10) !== str
         )
-          errors.push(`${field.label}必须是有效日期`)
+          fail(field, `${field.label}必须是有效日期`)
       }
       out[field.key] = str
     }
   }
-  return { values: out, errors }
+  return { values: out, errors, fieldErrors }
+}
+/** Thrown by validateRecord; `fields` maps field key to its first error message. */
+export class ValidationError extends Error {
+  constructor(public fields: Record<string, string>) {
+    super(Object.values(fields)[0])
+    this.name = 'ValidationError'
+  }
 }
 export function validateRecord(
   module: ModuleDefinition,
   input: Record<string, unknown>,
 ): Omit<DataRow, 'id'> {
-  const { values, errors } = collectRecordErrors(module, input)
-  if (errors.length) throw Error(errors[0])
+  const { values, errors, fieldErrors } = collectRecordErrors(module, input)
+  if (errors.length) throw new ValidationError(fieldErrors)
   return values
 }
 export function createMemoryRepository(

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import Button from '@/components/ui/button/Button.vue'
 import Input from '@/components/ui/input/Input.vue'
 import { usePreferences } from '@/stores/preferences'
@@ -7,10 +7,12 @@ import { readLocal, writeLocal } from '@/lib/access'
 const prefs = usePreferences(),
   name = ref(readLocal('admin-profile-name', '演示管理员')),
   bio = ref(readLocal('admin-profile-bio', '')),
+  fieldErrors = reactive<Record<string, string>>({}),
   message = ref('')
 function save() {
+  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
   if (!name.value.trim()) {
-    message.value = '显示名称不能为空'
+    fieldErrors.name = '显示名称不能为空'
     return
   }
   message.value =
@@ -34,9 +36,12 @@ function save() {
           <h2 class="text-lg font-medium">个人资料</h2>
           <p class="mt-1 text-sm text-muted-foreground">演示资料仅保存在本机，不会更改登录身份。</p>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-1.5">
           <label for="display-name" class="text-sm font-medium">显示名称</label
-          ><Input id="display-name" v-model="name" />
+          ><Input id="display-name" v-model="name" :aria-invalid="!!fieldErrors.name || undefined" />
+          <p v-if="fieldErrors.name" role="alert" class="text-sm text-destructive">
+            {{ fieldErrors.name }}
+          </p>
         </div>
         <div class="space-y-2">
           <label for="bio" class="text-sm font-medium">个人简介</label
@@ -64,7 +69,6 @@ function save() {
         </div>
         <p v-if="message" role="status" class="text-sm text-muted-foreground">{{ message }}</p>
         <Button type="submit">保存资料</Button>
-        <p v-if="message" role="status" class="text-sm text-muted-foreground">{{ message }}</p>
       </form>
     </div>
   </div>

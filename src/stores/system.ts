@@ -16,7 +16,15 @@ export const systemRows: Record<'roles' | 'menus' | 'dictionaries', Ref<DataRow[
 }
 
 export const useSystem = defineStore('system', () => {
-  const navigation = computed(() => buildNavigation(systemRows.menus.value))
+  const navigation = computed(() => {
+    const items = buildNavigation(systemRows.menus.value)
+    // Built-in documentation is available even with previously saved menu data.
+    // An explicit menu row (including a disabled one) takes precedence.
+    if (!systemRows.menus.value.some((row) => row.path === '/tools/components')) {
+      items.push({ title: '组件示例', path: '/tools/components', icon: 'box', group: '开发工具', order: 99 })
+    }
+    return items
+  })
   const options = (type: string) => dictionaryOptions(systemRows.dictionaries.value, type)
   const allows = (roleName: string, permission: string) =>
     roleAllows(systemRows.roles.value, roleName, permission)

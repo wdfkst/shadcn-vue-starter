@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Command } from 'lucide-vue-next'
 import Button from '@/components/ui/button/Button.vue'
@@ -11,6 +11,7 @@ const username = ref(mockMode ? 'admin' : ''),
   password = ref(mockMode ? 'admin123' : ''),
   confirm = ref(''),
   mode = ref<'login' | 'register'>('login'),
+  fieldErrors = reactive<Record<string, string>>({}),
   error = ref(''),
   success = ref(''),
   busy = ref(false),
@@ -21,6 +22,7 @@ const username = ref(mockMode ? 'admin' : ''),
 function switchMode(next: 'login' | 'register') {
   mode.value = next
   error.value = ''
+  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
   success.value = ''
   confirm.value = ''
   username.value = next === 'login' && mockMode ? 'admin' : ''
@@ -30,11 +32,17 @@ function switchMode(next: 'login' | 'register') {
 async function submit() {
   busy.value = true
   error.value = ''
+  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
   success.value = ''
   try {
+    if (!username.value.trim()) fieldErrors.username = '请输入账号'
+    if (!password.value) fieldErrors.password = '请输入密码'
     if (mode.value === 'register') {
-      if (!username.value.trim() || !password.value || !confirm.value) throw Error('请填写所有字段')
-      if (password.value !== confirm.value) throw Error('两次输入的密码不一致')
+      if (!confirm.value) fieldErrors.confirm = '请再次输入密码'
+      else if (password.value !== confirm.value) fieldErrors.confirm = '两次输入的密码不一致'
+    }
+    if (Object.keys(fieldErrors).length) return
+    if (mode.value === 'register') {
       await auth.register(username.value, password.value)
       success.value = '注册成功，请登录'
       mode.value = 'login'
@@ -42,7 +50,6 @@ async function submit() {
       confirm.value = ''
       return
     }
-    if (!username.value.trim() || !password.value) throw Error('请输入用户名和密码')
     await auth.login(username.value, password.value)
     const redirect = String(route.query.redirect || '/')
     await router.replace(redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/')
@@ -114,22 +121,43 @@ async function submit() {
         </div>
 
         <form class="mt-6 space-y-4" @submit.prevent="submit">
-          <div class="space-y-2">
+          <div class="space-y-1.5">
             <label for="username" class="text-sm font-medium">账号</label>
-            <Input id="username" v-model="username" autocomplete="username" />
+            <Input
+              id="username"
+              v-model="username"
+              autocomplete="username"
+              :aria-invalid="!!fieldErrors.username || undefined"
+            />
+            <p v-if="fieldErrors.username" role="alert" class="text-sm text-destructive">
+              {{ fieldErrors.username }}
+            </p>
           </div>
-          <div class="space-y-2">
+          <div class="space-y-1.5">
             <label for="password" class="text-sm font-medium">密码</label>
             <Input
               id="password"
               v-model="password"
               type="password"
               :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
+              :aria-invalid="!!fieldErrors.password || undefined"
             />
+            <p v-if="fieldErrors.password" role="alert" class="text-sm text-destructive">
+              {{ fieldErrors.password }}
+            </p>
           </div>
-          <div v-if="mode === 'register'" class="space-y-2">
+          <div v-if="mode === 'register'" class="space-y-1.5">
             <label for="confirm" class="text-sm font-medium">确认密码</label>
-            <Input id="confirm" v-model="confirm" type="password" autocomplete="new-password" />
+            <Input
+              id="confirm"
+              v-model="confirm"
+              type="password"
+              autocomplete="new-password"
+              :aria-invalid="!!fieldErrors.confirm || undefined"
+            />
+            <p v-if="fieldErrors.confirm" role="alert" class="text-sm text-destructive">
+              {{ fieldErrors.confirm }}
+            </p>
           </div>
           <p v-if="error" role="alert" class="text-sm text-destructive">{{ error }}</p>
           <p v-if="success" role="status" class="text-sm text-muted-foreground">{{ success }}</p>
