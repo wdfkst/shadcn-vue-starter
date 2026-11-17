@@ -450,6 +450,19 @@ async function importConfig(e: Event) {
             preview
           />
         </div>
+        <div
+          v-else-if="tab === 'preview'"
+          class="flex flex-col items-center gap-3 rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground"
+        >
+          <img
+            src="/illustrations/page-builder.png"
+            alt=""
+            width="1448"
+            height="1086"
+            class="h-28 w-auto rounded-lg object-contain mix-blend-multiply dark:mix-blend-normal"
+          />
+          <p>配置校验通过后，这里会显示生成页面的预览。</p>
+        </div>
         <div v-else-if="tab === 'code'" class="space-y-4">
           <div class="rounded-xl border p-5">
             <h2 class="text-sm font-semibold">在本地生成源码</h2>

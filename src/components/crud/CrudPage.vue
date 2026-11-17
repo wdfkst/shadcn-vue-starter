@@ -49,7 +49,8 @@ const auth = useAuth(),
   form = reactive<Record<string, unknown>>({}),
   fieldErrors = reactive<Record<string, string>>({}),
   saving = ref(false),
-  hidden = ref<string[]>([])
+  hidden = ref<string[]>([]),
+  filtered = ref(false)
 const MAX_IMPORT = 5 * 1024 * 1024
 const fileInput = ref<HTMLInputElement | null>(null)
 const importing = ref(false)
@@ -81,6 +82,9 @@ const can = (action: string) => writable.value && auth.can(`${props.module.key}:
 let request = 0
 async function load() {
   const id = ++request
+  // Captured with the request so the empty state reflects the loaded result,
+  // not search input the user has typed but not submitted.
+  const conditioned = !!query.value || Object.values(filters).some(Boolean)
   loading.value = true
   error.value = ''
   try {
@@ -93,6 +97,7 @@ async function load() {
     if (id !== request) return
     rows.value = result.items
     total.value = result.total
+    filtered.value = conditioned
     selected.value = []
     if (page.value > pages.value) {
       page.value = pages.value
@@ -378,8 +383,28 @@ function display(value: unknown) {
             </td>
           </tr>
           <tr v-else-if="!rows.length">
-            <td :colspan="fields.length + 2" class="h-40 text-center text-muted-foreground">
-              没有符合条件的数据
+            <td :colspan="fields.length + 2" class="px-4 py-8 text-center text-muted-foreground">
+              <div class="flex flex-col items-center gap-3 whitespace-normal">
+                <img
+                  :src="
+                    filtered ? '/illustrations/search-empty.png' : '/illustrations/empty-records.png'
+                  "
+                  alt=""
+                  :width="filtered ? 1254 : 1536"
+                  :height="filtered ? 1254 : 1024"
+                  class="h-24 w-auto rounded-lg object-contain mix-blend-multiply dark:mix-blend-normal"
+                />
+                <p v-if="filtered">
+                  没有符合条件的数据，<button
+                    type="button"
+                    class="rounded-sm text-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    @click="reset"
+                  >
+                    清除筛选</button
+                  >
+                </p>
+                <p v-else>暂无数据</p>
+              </div>
             </td>
           </tr>
           <template v-else

@@ -156,13 +156,13 @@ watch(
       ]"
     >
       <div
-        class="min-h-svh bg-background"
+        class="admin-atmosphere min-h-svh bg-background"
         :class="
           prefs.inset ? 'md:min-h-[calc(100svh-1rem)] md:rounded-xl md:border md:shadow-xs' : ''
         "
       >
         <header
-          class="sticky top-0 z-30 flex h-16 items-center gap-3 bg-background/95 px-4 backdrop-blur-sm"
+          class="sticky top-0 z-30 flex h-16 items-center gap-3 bg-background/75 px-4 backdrop-blur-xl"
         >
           <Button variant="outline" size="icon" aria-label="切换侧栏" @click="toggleSidebar"
             ><PanelLeft class="size-4" /></Button
@@ -268,3 +268,19 @@ watch(
     >
   </div>
 </template>
+
+<style scoped>
+.admin-atmosphere {
+  /* Soft gradients avoid blurring data or adding a full-screen filter layer. */
+  background-image:
+    radial-gradient(ellipse 80% 560px at 5% 0%, rgb(196 181 253 / 20%), transparent 75%),
+    radial-gradient(ellipse 65% 620px at 100% 35%, rgb(167 243 208 / 16%), transparent 75%),
+    radial-gradient(ellipse 60% 500px at 35% 100%, rgb(253 230 138 / 12%), transparent 75%);
+}
+:global(.dark) .admin-atmosphere {
+  background-image:
+    radial-gradient(ellipse 80% 560px at 5% 0%, rgb(167 139 250 / 9%), transparent 75%),
+    radial-gradient(ellipse 65% 620px at 100% 35%, rgb(52 211 153 / 6%), transparent 75%),
+    radial-gradient(ellipse 60% 500px at 35% 100%, rgb(252 211 77 / 4%), transparent 75%);
+}
+</style>

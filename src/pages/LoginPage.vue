@@ -61,45 +61,55 @@ async function submit() {
 }
 </script>
 <template>
-  <div class="grid min-h-svh lg:grid-cols-[3fr_2fr]">
-    <section class="relative hidden overflow-hidden bg-[#0b1220] lg:block" aria-hidden="true">
-      <img
-        :src="'/login-illustration.png'"
-        alt=""
-        class="absolute inset-0 size-full object-cover"
-        @error="($event.target as HTMLImageElement).style.display = 'none'"
-      />
-      <div
-        class="absolute inset-0 bg-[radial-gradient(120%_80%_at_20%_10%,rgba(99,102,241,0.25),transparent_55%),radial-gradient(90%_70%_at_85%_90%,rgba(56,189,248,0.2),transparent_60%),linear-gradient(160deg,rgba(11,18,32,0.35)_0%,rgba(17,26,46,0.15)_100%)]"
-      />
-      <div
-        class="absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(70%_60%_at_50%_45%,black,transparent)]"
-      />
-      <div class="absolute inset-0 bg-gradient-to-t from-[#0b1220]/80 via-transparent to-transparent" />
-      <div class="relative flex h-full flex-col justify-between p-10 text-white">
-        <div class="flex items-center gap-2 text-lg font-semibold">
-          <Command class="size-5" />Shadcn Admin
-        </div>
-        <div>
-          <p class="text-2xl font-semibold tracking-tight">一个开箱即用的通用后台模板</p>
-          <p class="mt-2 max-w-md text-sm text-white/70">
-            权限、菜单、字典与页面生成器，帮你快速搭建业务管理系统。
+  <div class="relative isolate grid min-h-svh bg-background lg:grid-cols-[3fr_2fr]">
+    <div aria-hidden="true" class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      <div class="absolute -top-24 -left-24 h-[70%] w-[65%] rounded-full bg-violet-300/30 blur-[100px] dark:bg-violet-400/10" />
+      <div class="absolute right-0 bottom-0 h-[65%] w-[55%] rounded-full bg-emerald-200/30 blur-[100px] dark:bg-emerald-400/10" />
+      <div class="absolute top-1/3 left-1/3 h-72 w-72 rounded-full bg-amber-200/25 blur-[90px] dark:bg-amber-300/5" />
+    </div>
+    <section class="hidden lg:flex lg:flex-col" aria-hidden="true">
+      <div class="flex items-center gap-2 px-10 pt-10 text-lg font-semibold">
+        <Command class="size-5" />Shadcn Admin
+      </div>
+      <div class="flex flex-1 flex-col items-center justify-center gap-6 px-10 py-10">
+        <img
+          src="/illustrations/login-scene.png"
+          alt=""
+          class="h-[min(48vh,440px)] w-full max-w-md object-contain"
+        />
+        <div class="max-w-md text-center">
+          <p class="text-3xl font-semibold tracking-tight">你的工作空间，准备就绪</p>
+          <p class="mt-3 text-sm leading-7 text-muted-foreground">
+            从日常管理到搭建新页面，让每一次开始都简单一点。
           </p>
         </div>
       </div>
+      <p class="px-10 pb-8 text-xs text-muted-foreground">管理业务，从这里开始。</p>
     </section>
 
-    <section class="flex flex-col items-center justify-center bg-background px-6 py-12">
+    <section class="flex flex-col items-center justify-center px-6 py-12 lg:pr-10">
       <div class="mb-8 flex items-center gap-2 text-xl font-semibold lg:hidden">
         <Command class="size-6" />Shadcn Admin
       </div>
-      <div class="w-full max-w-sm">
-        <h1 class="text-2xl font-semibold tracking-tight">
-          {{ mode === 'login' ? '欢迎回来' : '创建账号' }}
-        </h1>
-        <p class="mt-2 text-sm text-muted-foreground">
-          {{ mode === 'login' ? '输入你的账号和密码，登录管理平台' : '注册后即可登录管理平台' }}
-        </p>
+      <div class="relative w-full max-w-md rounded-2xl border border-border/70 bg-card/80 p-6 shadow-xl shadow-black/5 backdrop-blur-xl sm:p-8">
+        <div class="pointer-events-none absolute -top-3 right-8 size-5 rotate-12 rounded-md border bg-muted" aria-hidden="true" />
+        <div class="pointer-events-none absolute top-12 -right-2 size-3 rounded-full border bg-background" aria-hidden="true" />
+        <div class="flex items-center gap-2 border-b pb-5">
+          <div class="min-w-0 flex-1">
+            <p class="mb-2 text-xs font-medium text-muted-foreground">你的专属工作空间</p>
+            <h1 class="text-2xl font-semibold tracking-tight">
+              {{ mode === 'login' ? '欢迎回来' : '创建账号' }}
+            </h1>
+            <p class="mt-2 text-sm leading-6 text-muted-foreground">
+              {{ mode === 'login' ? '登录后，继续今天的工作。' : '创建账号，开启新的工作空间。' }}
+            </p>
+          </div>
+          <img
+            src="/illustrations/login-mascot.png"
+            alt=""
+            class="h-28 w-24 shrink-0 object-contain sm:h-32 sm:w-28"
+          />
+        </div>
 
         <div class="mt-6 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-sm">
           <button
