@@ -84,7 +84,8 @@ watch(
 )
 </script>
 <template>
-  <div class="min-h-svh" :class="prefs.inset ? 'bg-sidebar-accent/40' : ''">
+  <div class="relative isolate min-h-svh bg-background">
+    <div class="admin-atmosphere pointer-events-none fixed inset-0 -z-10" aria-hidden="true" />
     <a
       href="#main"
       class="sr-only z-[100] rounded bg-primary p-3 text-primary-foreground focus:not-sr-only focus:fixed"
@@ -97,7 +98,7 @@ watch(
       @click="mobile = false"
     />
     <aside
-      class="fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar text-sidebar-foreground transition-[width,transform] duration-200"
+      class="fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar/30 text-sidebar-foreground backdrop-blur-xl transition-[width,transform] duration-200"
       :class="[
         prefs.collapsed ? 'md:w-[3.25rem]' : 'md:w-64',
         mobile ? 'w-72 translate-x-0' : 'w-64 -translate-x-full md:translate-x-0',
@@ -156,13 +157,13 @@ watch(
       ]"
     >
       <div
-        class="admin-atmosphere min-h-svh bg-background"
+        class="min-h-svh"
         :class="
           prefs.inset ? 'md:min-h-[calc(100svh-1rem)] md:rounded-xl md:border md:shadow-xs' : ''
         "
       >
         <header
-          class="sticky top-0 z-30 flex h-16 items-center gap-3 bg-background/75 px-4 backdrop-blur-xl"
+          class="sticky top-0 z-30 flex h-16 items-center gap-3 bg-background/15 px-4 backdrop-blur-xl"
         >
           <Button variant="outline" size="icon" aria-label="切换侧栏" @click="toggleSidebar"
             ><PanelLeft class="size-4" /></Button

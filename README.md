@@ -2,7 +2,27 @@
 
 独立的 Vue 3 + Vite + TypeScript 后台模板，参考 shadcn-admin 的 slate 主题、16rem 侧栏、64px 顶栏、组件尺寸和内容区布局。中文界面，默认无多页签。
 
-> 这是可运行的前端首版，不是若依后端的替代品。基础 UI 采用 shadcn-vue 的源码组件组织方式和 Reka UI primitives；不是把 React 组件装进 Vue，也不声称所有组件都由官方 CLI 原样生成。
+## 截图
+
+### 登录
+
+![登录](docs/images/login.png)
+
+### 工作台
+
+![工作台](docs/images/workbench.png)
+
+### 用户管理
+
+![用户管理](docs/images/users.png)
+
+### 组件
+
+![组件](docs/images/components.png)
+
+### 页面生成器
+
+![页面生成器](docs/images/generator.png)
 
 ## 启动
 
@@ -13,7 +33,7 @@ npm install
 npm run dev -- --host 127.0.0.1
 ```
 
-默认 http://localhost:5175
+默认 [http://localhost:5175](http://localhost:5175)
 
 - 管理员：`admin` / `admin123`
 - 只读成员：`viewer` / `admin123`
@@ -26,6 +46,8 @@ npm run build
 npm run preview -- --host 127.0.0.1
 ```
 
+
+
 ## 已实现
 
 - 登录/退出、会话保存、路由和操作按钮权限；只读成员不能调用 Mock 仓储写入方法。
@@ -35,6 +57,8 @@ npm run preview -- --host 127.0.0.1
 - 可视化模块/字段配置、即时页面预览、代码预览、JSON 导入/导出。
 - CLI 真正生成 Vue 模块源码，自动注册路由和侧栏；已附一个实际生成的库存模块。
 - Mock 数据保存在 `localStorage`，存储受限时退化到内存；不是跨设备持久化数据库。
+
+
 
 ## 生成一个页面
 
@@ -78,6 +102,7 @@ VITE_API_BASE_URL=https://your-api.example/api
 重启 Vite。API 模式请求失败时不会回退到 Mock。
 
 接口约定：
+
 - `POST /auth/login`，body `{username,password}`；返回 `{token,user:{username,role:'admin'|'viewer'}}`。
 - `GET /users` 等集合接口；params `{query,filters,page,pageSize}`（Axios 对 filters 使用嵌套 query 参数）。返回 `{items:[{id,...fields}],total}`。
 - `POST /users` 返回创建后的记录。
@@ -87,15 +112,7 @@ VITE_API_BASE_URL=https://your-api.example/api
 
 生产需要由后端授权、校验、审计和管理会话；本地 token 存储仅是接入示例，真实项目应按安全架构选用 HttpOnly Cookie/BFF 等机制。当前没有刷新 token/自动续期，401 会显示错误。
 
-## 已知边界（不要把示例当成完整若依）
 
-- 角色/菜单/部门/字典是可编辑 CRUD 示例：修改角色权限字段不会改变内置 admin/viewer 权限；编辑菜单不会改写导航。导航由模块注册生成，后端动态 RBAC/菜单树尚未实现。
-- 部门当前为带上级字段的平面列表，没有树形编辑/循环关系校验。
-- 字典模块与生成器下拉选项尚未动态绑定；生成字段使用独立选项。
-- 日志是明确标注的模拟数据，不记录或声称具有生产级可信审计。
-- CSV 导出仅当前页或当前页勾选行；暂不支持服务器全量导出、批量删除、排序、文件上传。
-- 布局视觉基于原项目，业务页面/首页内容为新实现，并非每个 React 页面逐像素复制；没有原项目全部主题/字体/RTL配置。
-- 没有后端、数据库解析、数据库代码生成、多租户、工作流或生产认证服务。
 
 ## 目录
 
@@ -104,5 +121,3 @@ VITE_API_BASE_URL=https://your-api.example/api
 ## 验证
 
 `npm test` 验证权限、存储异常、CRUD 校验、生成配置/源代码转义、SFC编译、路径逃逸/符号链接/覆盖保护。实际浏览器已验证登录、用户增删改查、生成预览与配置下载、生成库存路由、viewer操作限制/403、主题与移动侧栏。
-
-原项目参考及版权见 `LICENSE`。没有修改原 React 项目的业务代码。
